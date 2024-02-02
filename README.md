@@ -1,2 +1,2 @@
-# MADP2024---Basic-Number-Game
+# MADP2024-BasicNumberGame
 Mobile App Development in class code 2024. Pick the bigger number.
