@@ -1,23 +1,29 @@
 package com.example.bignumber
 
-import androidx.appcompat.app.AppCompatActivity
+import android.content.Context
+import android.content.Intent
 import android.os.Bundle
+import android.util.Log
 import android.view.View
 import android.widget.ArrayAdapter
-import android.widget.Button
 import android.widget.ListView
 import android.widget.TextView
-import androidx.recyclerview.widget.RecyclerView
+import androidx.appcompat.app.AppCompatActivity
+import java.io.File
+import java.io.FileInputStream
 import java.util.Random
+import java.util.Scanner
+
 
 data class WordDefinition(val word: String, val definition: String);
 
 class MainActivity : AppCompatActivity() {
+    private val ADD_WORD_CODE = 1234 // 1-65535
     private var dataDefList = ArrayList<String>();
     private lateinit var myAdapter : ArrayAdapter<String>;
-    private var leftNum :Int = 0;
-    private var rightNum :Int = 0;
     private var score :Int = 0;
+    private var totalCorrect: Int = 0;
+    private var totalWrong: Int = 0;
 
     private var wordDefinitions = mutableListOf<WordDefinition>();
 
@@ -26,16 +32,136 @@ class MainActivity : AppCompatActivity() {
         setContentView(R.layout.activity_main)
         // above init our app ui
 
+        Log.d("activity watch", "onCreate");
 
         loadDefinitions();
         pickRandomNumbers();
         setupList();
 
+        findViewById<TextView>(R.id.score_id).text = "score: 0"
+
         val def_list = findViewById<ListView>(R.id.dynamic_def_list);
         def_list.setOnItemClickListener { _, _, index, _ ->
-            dataDefList.removeAt(index);
+            var correctDef: String = ""
+
+            for(wd in wordDefinitions)
+                if (wd.word == findViewById<TextView>(R.id.word_id).text.toString())
+                    correctDef = wd.definition
+
+            if (correctDef == dataDefList[index])
+            {
+                score++;
+                totalCorrect++;
+            }
+            else
+            {
+                score--;
+                totalWrong++;
+            }
+
+            findViewById<TextView>(R.id.score_id).text = "score: " + score.toString()
+
+            refreshWordAndDefinitions()
+
             myAdapter.notifyDataSetChanged();
         };
+    }
+
+    override fun onStart()
+    {
+        super.onStart();
+
+        Log.d("activity watch", "onStart");
+    }
+
+    override fun onResume() {
+        super.onResume()
+
+        Log.d("activity watch", "onResume");
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+
+        Log.d("activity watch", "onDestroy");
+    }
+
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+
+        if (requestCode == ADD_WORD_CODE)
+        {
+            if (data != null) {
+                val word = data.getStringExtra("word")?:""
+                val def = data.getStringExtra("def")?:""
+
+                // (condition) ? true : false
+
+                wordDefinitions.add(WordDefinition(word, def))
+                refreshWordAndDefinitions()
+                myAdapter.notifyDataSetChanged()
+
+                val file = File(applicationContext.filesDir, "user_words")
+
+                if (file.exists() == false)
+                    file.createNewFile()
+
+                file.appendText("$word|$def\n");
+            }
+        }
+    }
+
+    fun statsOnClick(view: View)
+    {
+        val myIntent = Intent(this, StatsActivity::class.java)
+        myIntent.putExtra("score", score.toString())
+        myIntent.putExtra("totalCorrect", totalCorrect.toString())
+        myIntent.putExtra("totalWrong", totalWrong.toString())
+        startActivity(myIntent)
+    }
+
+    private fun loadPlayerData()
+    {
+        val reader = Scanner(resources.openRawResource(R.raw.game_data));
+        while(reader.hasNextLine())
+        {
+            val line = reader.nextLine();
+            val wd = line.split("|");
+            wordDefinitions.add(
+                WordDefinition(
+                    wd[0],
+                    wd[1])
+            );
+        }
+
+        val file = File(applicationContext.filesDir, "user_words")
+
+        if (file.exists()){
+            val readResult = FileInputStream(file)
+            val userReader = Scanner(readResult)
+
+            while(userReader.hasNextLine())
+            {
+                val line = userReader.nextLine();
+                val wd = line.split("|");
+                wordDefinitions.add(
+                    WordDefinition(
+                        wd[0],
+                        wd[1])
+                );
+            }
+        }
+    }
+
+    private fun savePlayerData()
+    {
+
+    }
+
+    fun addWordOnClick(view: View)
+    {
+        val myIntent = Intent(this, AddWordActivity::class.java);
+        startActivityForResult(myIntent, ADD_WORD_CODE)
     }
 
     fun setupList()
@@ -50,18 +176,13 @@ class MainActivity : AppCompatActivity() {
 
     fun loadDefinitions()
     {
-        wordDefinitions.add(WordDefinition("simple","easy to understand"));
-
-        wordDefinitions.add(WordDefinition("game engine","library that manages the lifetime of the game"));
-
-        wordDefinitions.add(WordDefinition("kotlin","programming language"));
-
-        wordDefinitions.add(WordDefinition("Love2D","game framework for lua"));
+        loadPlayerData()
     }
 
     fun refreshWordAndDefinitions()
     {
-        findViewById<TextView>(R.id.word_id).text = wordDefinitions[0].word;
+        var rand = Random()
+        findViewById<TextView>(R.id.word_id).text = wordDefinitions[rand.nextInt(wordDefinitions.size)].word;
 
         dataDefList.clear();
 
